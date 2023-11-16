@@ -1,11 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:whatsapp_clone/common/enums/message_enums.dart';
 import 'package:whatsapp_clone/common/utils/utils.dart';
 import 'package:whatsapp_clone/models/chat_contact.dart';
+import 'package:whatsapp_clone/models/message.dart';
 import 'package:whatsapp_clone/models/user_model.dart';
 import 'package:uuid/uuid.dart';
+
+final chatRepositoryProvider = Provider((ref) => ChatRepository(
+    firestore: FirebaseFirestore.instance, auth: FirebaseAuth.instance));
 
 class ChatRepository {
   final FirebaseFirestore firestore;
@@ -61,7 +66,41 @@ class ChatRepository {
     required String username,
     required recieverUsername,
     required MessageEnum messageType,
-  }) async {}
+  }) async {
+    final message = Message(
+      senderId: auth.currentUser!.uid,
+      recieverid: recieverUserId,
+      text: text,
+      type: messageType,
+      timeSent: timeSent,
+      messageId: messageId,
+      isSeen: false,
+      // repliedMessage: repliedMessage,
+      // repliedTo: repliedTo,
+      // repliedMessageType: repliedMessageType
+    );
+    await firestore
+        .collection('users')
+        .doc(auth.currentUser!.uid)
+        .collection('chats')
+        .doc(recieverUserId)
+        .collection('message')
+        .doc(messageId)
+        .set(
+          message.toMap(),
+        );
+
+    await firestore
+        .collection('users')
+        .doc(recieverUserId)
+        .collection('chats')
+        .doc(auth.currentUser!.uid)
+        .collection('message')
+        .doc(messageId)
+        .set(
+          message.toMap(),
+        );
+  }
 
   void sendTextMessage({
     required BuildContext context,
@@ -88,7 +127,7 @@ class ChatRepository {
         messageType: MessageEnum.text,
         messageId: messageId,
         recieverUsername: recieverUserData.name,
-        username:  senderUser.name,
+        username: senderUser.name,
       );
     } catch (e) {
       showSnackBar(context: context, content: e.toString());
