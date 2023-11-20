@@ -20,117 +20,166 @@ class ChatRepository {
     required this.auth,
   });
 
-  void _saveDataToContactsSubcollection(
-    UserModel senderUserData,
-    UserModel recieverUserData,
-    String text,
-    DateTime timeSent,
-    String recieverUserId,
-  ) async {
-    var recieverChatContact = ChatContact(
-        name: senderUserData.name,
-        profilePic: senderUserData.profilePic,
-        contactId: senderUserData.uid,
-        timeSent: timeSent,
-        lastMessage: text);
-    await firestore
+  Stream<List<ChatContact>> getChatContacts() {
+    return firestore
         .collection('users')
-        .doc(recieverUserId)
-        .collection('chats')
         .doc(auth.currentUser!.uid)
-        .set(
-          recieverChatContact.toMap(),
-        );
+        .collection('chats')
+        .snapshots()
+        .asyncMap((event) async {
+      List<ChatContact> contacts = [];
+      for (var document in event.docs) {
+        var chatContact = ChatContact.fromMap(document.data());
+        var userData = await firestore
+            .collection('users')
+            .doc(chatContact.contactId)
+            .get();
+        var user = UserModel.fromMap(userData.data()!);
 
-    var senderChatContact = ChatContact(
-        name: recieverUserData.name,
-        profilePic: recieverUserData.profilePic,
-        contactId: recieverUserData.uid,
-        timeSent: timeSent,
-        lastMessage: text);
-    await firestore
-        .collection('users')
-        .doc(auth.currentUser!.uid)
-        .collection('chats')
-        .doc(recieverUserId)
-        .set(
-          recieverChatContact.toMap(),
+        contacts.add(
+          ChatContact(
+            name: user.name,
+            profilePic: user.profilePic,
+            contactId: chatContact.contactId,
+            timeSent: chatContact.timeSent,
+            lastMessage: chatContact.lastMessage,
+          ),
         );
+      }
+      return contacts;
+    });
   }
 
-  void _saveMessageToMessageSubcollection({
-    required String recieverUserId,
-    required String text,
-    required DateTime timeSent,
-    required String messageId,
-    required String username,
-    required recieverUsername,
-    required MessageEnum messageType,
-  }) async {
-    final message = Message(
-      senderId: auth.currentUser!.uid,
-      recieverid: recieverUserId,
-      text: text,
-      type: messageType,
-      timeSent: timeSent,
-      messageId: messageId,
-      isSeen: false,
-      // repliedMessage: repliedMessage,
-      // repliedTo: repliedTo,
-      // repliedMessageType: repliedMessageType
-    );
-    await firestore
+  Stream<List<Message>> getChatStream(String recieverUserId) {
+    return firestore
         .collection('users')
         .doc(auth.currentUser!.uid)
         .collection('chats')
         .doc(recieverUserId)
-        .collection('message')
-        .doc(messageId)
-        .set(
-          message.toMap(),
-        );
-
-    await firestore
-        .collection('users')
-        .doc(recieverUserId)
-        .collection('chats')
-        .doc(auth.currentUser!.uid)
-        .collection('message')
-        .doc(messageId)
-        .set(
-          message.toMap(),
-        );
+        .collection('messages')
+        .orderBy('timeSent')
+        .snapshots()
+        .map((event) {
+      List<Message> messages = [];
+      for (var document in event.docs) {
+        messages.add(Message.fromMap(document.data()));
+      }
+      return messages;
+    });
   }
 
-  void sendTextMessage({
-    required BuildContext context,
-    required String text,
-    required String recieverUserId,
-    required UserModel senderUser,
-  }) async {
-    try {
-      var timeSent = DateTime.now();
-      UserModel recieverUserData;
+    void _saveDataToContactsSubcollection(
+      UserModel senderUserData,
+      UserModel recieverUserData,
+      String text,
+      DateTime timeSent,
+      String recieverUserId,
+    ) async {
+      var recieverChatContact = ChatContact(
+          name: senderUserData.name,
+          profilePic: senderUserData.profilePic,
+          contactId: senderUserData.uid,
+          timeSent: timeSent,
+          lastMessage: text);
+      await firestore
+          .collection('users')
+          .doc(recieverUserId)
+          .collection('chats')
+          .doc(auth.currentUser!.uid)
+          .set(
+            recieverChatContact.toMap(),
+          );
 
-      var userDataMap =
-          await firestore.collection('users').doc(recieverUserId).get();
-      recieverUserData = UserModel.fromMap(userDataMap.data()!);
+      var senderChatContact = ChatContact(
+          name: recieverUserData.name,
+          profilePic: recieverUserData.profilePic,
+          contactId: recieverUserData.uid,
+          timeSent: timeSent,
+          lastMessage: text);
+      await firestore
+          .collection('users')
+          .doc(auth.currentUser!.uid)
+          .collection('chats')
+          .doc(recieverUserId)
+          .set(
+            recieverChatContact.toMap(),
+          );
+    }
 
-      var messageId = const Uuid().v1();
-
-      _saveDataToContactsSubcollection(
-          senderUser, recieverUserData, text, timeSent, recieverUserId);
-      _saveMessageToMessageSubcollection(
-        recieverUserId: recieverUserId,
+    void _saveMessageToMessageSubcollection({
+      required String recieverUserId,
+      required String text,
+      required DateTime timeSent,
+      required String messageId,
+      required String username,
+      required recieverUsername,
+      required MessageEnum messageType,
+    }) async {
+      final message = Message(
+        senderId: auth.currentUser!.uid,
+        recieverid: recieverUserId,
         text: text,
+        type: messageType,
         timeSent: timeSent,
-        messageType: MessageEnum.text,
         messageId: messageId,
-        recieverUsername: recieverUserData.name,
-        username: senderUser.name,
+        isSeen: false,
+        // repliedMessage: repliedMessage,
+        // repliedTo: repliedTo,
+        // repliedMessageType: repliedMessageType
       );
-    } catch (e) {
-      showSnackBar(context: context, content: e.toString());
+      await firestore
+          .collection('users')
+          .doc(auth.currentUser!.uid)
+          .collection('chats')
+          .doc(recieverUserId)
+          .collection('message')
+          .doc(messageId)
+          .set(
+            message.toMap(),
+          );
+
+      await firestore
+          .collection('users')
+          .doc(recieverUserId)
+          .collection('chats')
+          .doc(auth.currentUser!.uid)
+          .collection('message')
+          .doc(messageId)
+          .set(
+            message.toMap(),
+          );
+    }
+
+    void sendTextMessage({
+      required BuildContext context,
+      required String text,
+      required String recieverUserId,
+      required UserModel senderUser,
+    }) async {
+      try {
+        var timeSent = DateTime.now();
+        UserModel recieverUserData;
+
+        var userDataMap =
+            await firestore.collection('users').doc(recieverUserId).get();
+        recieverUserData = UserModel.fromMap(userDataMap.data()!);
+
+        var messageId = const Uuid().v1();
+
+        _saveDataToContactsSubcollection(
+            senderUser, recieverUserData, text, timeSent, recieverUserId);
+        _saveMessageToMessageSubcollection(
+          recieverUserId: recieverUserId,
+          text: text,
+          timeSent: timeSent,
+          messageType: MessageEnum.text,
+          messageId: messageId,
+          recieverUsername: recieverUserData.name,
+          username: senderUser.name,
+        );
+      } catch (e) {
+        showSnackBar(context: context, content: e.toString());
+      }
     }
   }
-}
+
