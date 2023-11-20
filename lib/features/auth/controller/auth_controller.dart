@@ -54,7 +54,7 @@ class AuthController {
     return authRepository.userData(userId);
   }
 
-  // void setUserState(bool isOnline) {
-  //   authRepository.setUserState(isOnline);
-  // }
+  void setUserState(bool isOnline) {
+    authRepository.setUserState(isOnline);
+  }
 }
