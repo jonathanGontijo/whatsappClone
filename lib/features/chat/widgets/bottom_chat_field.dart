@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:whatsapp_clone/colors.dart';
@@ -21,6 +22,8 @@ class BottomChatField extends ConsumerStatefulWidget {
 class _BottomChatFieldState extends ConsumerState<BottomChatField> {
   bool isShowSendButton = false;
   final TextEditingController _messageController = TextEditingController();
+  bool isShowEmojiContainer = false;
+  FocusNode focusNode = FocusNode();
 
   void sendTextMessage() async {
     if (isShowSendButton) {
@@ -59,6 +62,31 @@ class _BottomChatFieldState extends ConsumerState<BottomChatField> {
     }
   }
 
+  void hideEmojiContainer() {
+    setState(() {
+      isShowEmojiContainer = false;
+    });
+  }
+
+  void showEmojiContainer() {
+    setState(() {
+      isShowEmojiContainer = true;
+    });
+  }
+
+  void showKeyboard() => focusNode.requestFocus();
+  void hideKeyboard() => focusNode.unfocus();
+
+  void toogleEmojiKeyboardContainer() {
+    if (isShowEmojiContainer) {
+      showKeyboard();
+      hideEmojiContainer();
+    } else {
+      hideKeyboard();
+      showEmojiContainer();
+    }
+  }
+
   @override
   void dispose() {
     super.dispose();
@@ -71,6 +99,7 @@ class _BottomChatFieldState extends ConsumerState<BottomChatField> {
       children: [
         Expanded(
           child: TextFormField(
+            focusNode: focusNode,
             controller: _messageController,
             onChanged: (val) {
               if (val.isNotEmpty) {
@@ -93,7 +122,7 @@ class _BottomChatFieldState extends ConsumerState<BottomChatField> {
                   child: Row(
                     children: [
                       IconButton(
-                        onPressed: () {},
+                        onPressed: toogleEmojiKeyboardContainer,
                         icon: const Icon(
                           Icons.emoji_emotions,
                           color: Colors.grey,
@@ -112,23 +141,45 @@ class _BottomChatFieldState extends ConsumerState<BottomChatField> {
               ),
               suffixIcon: SizedBox(
                 width: 100,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                child: Column(
                   children: [
-                    IconButton(
-                      onPressed: selectImage,
-                      icon: const Icon(
-                        Icons.camera_alt,
-                        color: Colors.grey,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          onPressed: selectImage,
+                          icon: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: selectVideo,
+                          icon: const Icon(
+                            Icons.attach_file,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      onPressed: selectVideo,
-                      icon: const Icon(
-                        Icons.attach_file,
-                        color: Colors.grey,
-                      ),
-                    ),
+                    isShowEmojiContainer
+                        ? SizedBox(
+                            height: 310,
+                            child: EmojiPicker(
+                              onEmojiSelected: ((category, emoji) {
+                                setState(() {
+                                  _messageController.text =
+                                      _messageController.text + emoji.emoji;
+                                });
+                                if (!isShowSendButton) {
+                                  setState(() {
+                                    isShowSendButton = true;
+                                  });
+                                }
+                              }),
+                            ),
+                          )
+                        : const SizedBox()
                   ],
                 ),
               ),
